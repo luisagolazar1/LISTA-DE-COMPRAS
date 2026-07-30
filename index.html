@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista de Compras</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 42 42'><circle cx='21' cy='21' r='20' fill='%232D6A4F'/><path d='M12 14h3l2.2 12.5a2 2 0 0 0 2 1.6h9.6a2 2 0 0 0 2-1.6L32 17H16' stroke='%23FAF7F0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='19' cy='31' r='1.8' fill='%23FAF7F0'/><circle cx='27' cy='31' r='1.8' fill='%23FAF7F0'/></svg>">
+<style>
+  :root{
+    --paper:#FAF7F0;
+    --ink:#1F2A24;
+    --line:#D8D2C2;
+    --green:#2D6A4F;
+    --green-soft:#E6F0EA;
+    --amber:#C9752B;
+    --amber-soft:#FBECDD;
+    --red:#B3452E;
+    --white:#FFFFFF;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    padding-bottom:60px;
+  }
+  header{
+    padding:18px 16px 14px;
+    border-bottom:2px dashed var(--line);
+    background:var(--white);
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .logo{flex-shrink:0;}
+  header .titulos h1{margin:0 0 2px;font-size:1.3rem;letter-spacing:0.3px;}
+  header .titulos .sub{font-size:0.75rem;color:#6b6b60;display:flex;align-items:center;gap:5px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;}
+  .dot.off{background:var(--red);}
+
+  .totals{display:flex;gap:10px;padding:14px 16px 6px;flex-wrap:wrap;}
+  .totals .card{flex:1;min-width:120px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;}
+  .totals .card .label{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:#8a8a7c;display:block;margin-bottom:3px;}
+  .totals .card .val{font-size:1.15rem;font-weight:700;font-family:'Courier New',monospace;}
+  .totals .card.pend .val{color:var(--amber);}
+  .totals .card.comp .val{color:var(--green);}
+  .totals .card.gran .val{color:var(--ink);}
+
+  .add-bar{display:flex;gap:6px;padding:10px 16px;flex-wrap:wrap;background:var(--white);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;}
+  .add-bar input{border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:0.95rem;background:var(--paper);}
+  #f-nombre{flex:2 1 140px;}
+  #f-precio{flex:1 1 80px;}
+  #f-cant{flex:1 1 65px;}
+  .add-bar button{flex:0 0 auto;border:none;background:var(--green);color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.95rem;}
+  .add-bar button:active{transform:scale(0.97);}
+
+  .list{padding:8px 16px 4px;}
+  .item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px;padding:11px 10px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px;}
+  .item.comprado{background:var(--green-soft);opacity:0.85;}
+  .item.comprado .nombre{text-decoration:line-through;color:#5c6f63;}
+  .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--green);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--green);flex-shrink:0;}
+  .item.comprado .check{background:var(--green);color:#fff;}
+  .info .nombre{font-weight:600;font-size:0.98rem;}
+  .info .detalle{font-size:0.78rem;color:#7a7a6e;font-family:'Courier New',monospace;margin-top:2px;}
+  .subtotal{font-family:'Courier New',monospace;font-weight:700;font-size:0.98rem;text-align:right;min-width:64px;}
+  .del{border:none;background:none;color:var(--red);font-size:1.1rem;cursor:pointer;padding:4px 6px;flex-shrink:0;}
+  .empty{text-align:center;color:#9a9a8c;padding:30px 10px;font-size:0.9rem;}
+
+  .actions{display:flex;gap:8px;padding:10px 16px 4px;flex-wrap:wrap;}
+  .actions button{flex:1;min-width:130px;padding:11px;border-radius:8px;border:1px solid var(--line);background:var(--white);font-weight:600;font-size:0.9rem;cursor:pointer;}
+  #btn-copiar{color:var(--green);border-color:var(--green);}
+  #btn-finalizar{color:var(--amber);border-color:var(--amber);}
+  #btn-finalizar:disabled{opacity:0.4;cursor:default;}
+
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:20px;font-size:0.85rem;opacity:0;transition:opacity .25s;pointer-events:none;}
+  .toast.show{opacity:0.95;}
+
+  section.hist{padding:6px 16px 30px;}
+  section.hist h2{font-size:0.95rem;color:#6b6b60;border-top:2px dashed var(--line);padding-top:14px;margin:10px 0 8px;}
+  .hist-item{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+  .hist-item .fecha{font-size:0.82rem;color:#6b6b60;}
+  .hist-item .monto{font-family:'Courier New',monospace;font-weight:700;color:var(--amber);}
+  .hist-item .borrar-h{border:none;background:none;color:var(--red);font-size:0.95rem;margin-left:8px;cursor:pointer;}
+  .hist-detalle{font-size:0.8rem;color:#555;background:var(--amber-soft);border-radius:8px;padding:8px 10px;margin:-2px 0 8px;display:none;}
+  .hist-detalle.show{display:block;}
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="logo" width="42" height="42" viewBox="0 0 42 42" fill="none">
+    <circle cx="21" cy="21" r="20" fill="#2D6A4F"/>
+    <path d="M12 14h3l2.2 12.5a2 2 0 0 0 2 1.6h9.6a2 2 0 0 0 2-1.6L32 17H16" stroke="#FAF7F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="19" cy="31" r="1.8" fill="#FAF7F0"/>
+    <circle cx="27" cy="31" r="1.8" fill="#FAF7F0"/>
+  </svg>
+  <div class="titulos">
+    <h1>Lista de Compras</h1>
+    <div class="sub"><span class="dot" id="sync-dot"></span><span id="sync-txt">Sincronizando...</span></div>
+  </div>
+</header>
+
+<div class="totals">
+  <div class="card pend"><span class="label">Pendiente</span><span class="val" id="t-pend">$0</span></div>
+  <div class="card comp"><span class="label">Comprado</span><span class="val" id="t-comp">$0</span></div>
+  <div class="card gran"><span class="label">Total</span><span class="val" id="t-gran">$0</span></div>
+</div>
+
+<div class="add-bar">
+  <input id="f-nombre" type="text" placeholder="Producto" autocomplete="off">
+  <input id="f-precio" type="number" placeholder="Precio" step="0.01" min="0">
+  <input id="f-cant" type="number" placeholder="Cant." value="1" min="1">
+  <button id="btn-add">+ Agregar</button>
+</div>
+
+<div class="list" id="lista"><div class="empty">Cargando lista...</div></div>
+
+<div class="actions">
+  <button id="btn-copiar">📋 Copiar lista</button>
+  <button id="btn-finalizar" disabled>✅ Finalizar compra</button>
+</div>
+
+<section class="hist">
+  <h2>Historial de gastos</h2>
+  <div id="historial"><div class="empty">Cargando historial...</div></div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CACHE_KEY = 'lista_compras_cache';
+let items = [];
+let historial = [];
+let listo = false;
+
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function marcarSync(ok, msg){
+  $('sync-dot').classList.toggle('off', !ok);
+  $('sync-txt').textContent = msg || (ok ? 'Sincronizada' : 'Sin conexión, guardado local');
+}
+
+function guardarCacheLocal(){
+  localStorage.setItem(CACHE_KEY, JSON.stringify({items, historial}));
+}
+
+async function cargarDatos(){
+  // Pintado instantáneo con lo último guardado en este navegador
+  try{
+    const cache = localStorage.getItem(CACHE_KEY);
+    if(cache){
+      const d = JSON.parse(cache);
+      items = d.items || [];
+      historial = d.historial || [];
+      listo = true;
+      render();
+    }
+  }catch(e){}
+
+  // Traer la versión real desde la nube
+  try{
+    const r = await fetch('/api/data');
+    if(!r.ok) throw new Error('fetch failed');
+    const data = await r.json();
+    items = data.items || [];
+    historial = data.historial || [];
+    listo = true;
+    guardarCacheLocal();
+    marcarSync(true);
+    render();
+  }catch(e){
+    listo = true;
+    marcarSync(false, 'Sin conexión, mostrando copia local');
+    render();
+  }
+}
+
+async function guardarTodo(){
+  guardarCacheLocal();
+  try{
+    const r = await fetch('/api/data', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({items, historial})
+    });
+    if(!r.ok) throw new Error('save failed');
+    marcarSync(true);
+  }catch(e){
+    marcarSync(false, 'No se pudo guardar en la nube (se guardó local)');
+  }
+}
+
+function render(){
+  const cont = $('lista');
+  if(!listo) return;
+  if(items.length === 0){
+    cont.innerHTML = '<div class="empty">Sin productos aún. Agregá el primero arriba 👆</div>';
+  } else {
+    cont.innerHTML = items.map((it, i) => {
+      const sub = it.precio * it.cant;
+      return `<div class="item ${it.comprado?'comprado':''}">
+        <button class="check" onclick="toggle(${i})">${it.comprado?'✓':''}</button>
+        <div class="info">
+          <div class="nombre">${escapeHtml(it.nombre)}</div>
+          <div class="detalle">${it.cant} x ${fmt(it.precio)}</div>
+        </div>
+        <div class="subtotal">${fmt(sub)}</div>
+        <button class="del" onclick="borrar(${i})">🗑</button>
+      </div>`;
+    }).join('');
+  }
+
+  const pend = items.filter(i=>!i.comprado).reduce((s,i)=>s+i.precio*i.cant,0);
+  const comp = items.filter(i=>i.comprado).reduce((s,i)=>s+i.precio*i.cant,0);
+  $('t-pend').textContent = fmt(pend);
+  $('t-comp').textContent = fmt(comp);
+  $('t-gran').textContent = fmt(pend+comp);
+
+  $('btn-finalizar').disabled = items.length === 0;
+
+  renderHistorial();
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function toggle(i){ items[i].comprado = !items[i].comprado; render(); guardarTodo(); }
+function borrar(i){ items.splice(i,1); render(); guardarTodo(); }
+
+function agregar(){
+  const nombre = $('f-nombre').value.trim();
+  const precio = parseFloat($('f-precio').value) || 0;
+  const cant = parseInt($('f-cant').value) || 1;
+  if(!nombre){ $('f-nombre').focus(); return; }
+  items.push({nombre, precio, cant, comprado:false});
+  $('f-nombre').value = '';
+  $('f-precio').value = '';
+  $('f-cant').value = 1;
+  render();
+  guardarTodo();
+  $('f-nombre').focus();
+}
+
+$('btn-add').addEventListener('click', agregar);
+[$('f-nombre'), $('f-precio'), $('f-cant')].forEach(inp=>{
+  inp.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); agregar(); }
+  });
+});
+
+function mostrarToast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+$('btn-copiar').addEventListener('click', ()=>{
+  if(items.length === 0){ mostrarToast('La lista está vacía'); return; }
+  let texto = '🛒 LISTA DE COMPRAS\n\n';
+  items.forEach(it=>{
+    const marca = it.comprado ? '[x]' : '[ ]';
+    texto += `${marca} ${it.nombre} - ${it.cant} x ${fmt(it.precio)} = ${fmt(it.precio*it.cant)}\n`;
+  });
+  const pend = items.filter(i=>!i.comprado).reduce((s,i)=>s+i.precio*i.cant,0);
+  const comp = items.filter(i=>i.comprado).reduce((s,i)=>s+i.precio*i.cant,0);
+  texto += `\nPendiente: ${fmt(pend)}\nComprado: ${fmt(comp)}\nTOTAL: ${fmt(pend+comp)}`;
+
+  navigator.clipboard.writeText(texto).then(()=>{
+    mostrarToast('Lista copiada ✅');
+  }).catch(()=>{
+    mostrarToast('No se pudo copiar');
+  });
+});
+
+$('btn-finalizar').addEventListener('click', async ()=>{
+  if(items.length === 0) return;
+  const total = items.reduce((s,i)=>s+i.precio*i.cant,0);
+  const confirmar = confirm(`¿Finalizar esta compra por ${fmt(total)} y guardarla en el historial? Esto vacía la lista actual.`);
+  if(!confirmar) return;
+  historial.unshift({
+    fecha: new Date().toLocaleString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}),
+    total,
+    items: JSON.parse(JSON.stringify(items))
+  });
+  items = [];
+  render();
+  await guardarTodo();
+  mostrarToast('Compra guardada en el historial 📦');
+});
+
+function renderHistorial(){
+  const cont = $('historial');
+  if(historial.length === 0){
+    cont.innerHTML = '<div class="empty">Todavía no hay compras finalizadas.</div>';
+    return;
+  }
+  cont.innerHTML = historial.map((h, i) => `
+    <div class="hist-item" onclick="toggleDetalle(${i})">
+      <span class="fecha">${h.fecha}</span>
+      <span>
+        <span class="monto">${fmt(h.total)}</span>
+        <button class="borrar-h" onclick="event.stopPropagation(); borrarHist(${i})">🗑</button>
+      </span>
+    </div>
+    <div class="hist-detalle" id="hd-${i}">
+      ${h.items.map(it=>`${it.comprado?'✓':'○'} ${escapeHtml(it.nombre)} — ${it.cant} x ${fmt(it.precio)} = ${fmt(it.precio*it.cant)}`).join('<br>')}
+    </div>
+  `).join('');
+}
+
+function toggleDetalle(i){
+  $(`hd-${i}`).classList.toggle('show');
+}
+
+function borrarHist(i){
+  historial.splice(i,1);
+  render();
+  guardarTodo();
+}
+
+cargarDatos();
+</script>
+</body>
+</html>
