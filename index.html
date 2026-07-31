@@ -43,6 +43,38 @@
   .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;}
   .dot.off{background:var(--red);}
 
+  .tabs{
+    display:flex;
+    gap:7px;
+    padding:10px 16px;
+    overflow-x:auto;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
+    -webkit-overflow-scrolling:touch;
+  }
+  .tabs::-webkit-scrollbar{display:none;}
+
+  .chip{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding:6px 12px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    font-size:0.78rem;
+    font-weight:600;
+    cursor:pointer;
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .chip .chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .chip.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .chip .count{opacity:0.65;font-weight:500;}
+  .chip-add{background:var(--green-soft);color:var(--green);border-color:var(--green);}
+  .tab-del{margin-left:2px;opacity:0.7;font-weight:900;font-size:0.85rem;}
+
   .totals{
     display:flex;gap:8px;padding:10px 16px;flex-wrap:nowrap;
     background:var(--white);
@@ -92,24 +124,6 @@
     z-index:4;
   }
   .filtros::-webkit-scrollbar{display:none;}
-  .chip{
-    flex-shrink:0;
-    display:flex;
-    align-items:center;
-    gap:5px;
-    padding:6px 12px;
-    border-radius:20px;
-    border:1px solid var(--line);
-    background:var(--paper);
-    font-size:0.78rem;
-    font-weight:600;
-    cursor:pointer;
-    color:var(--ink);
-    white-space:nowrap;
-  }
-  .chip .chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-  .chip.active{background:var(--ink);color:#fff;border-color:var(--ink);}
-  .chip .count{opacity:0.65;font-weight:500;}
 
   .list{padding:8px 16px 4px;}
 
@@ -174,9 +188,24 @@
   #btn-importar{color:var(--blue);border-color:var(--blue);}
   #btn-importar:disabled{opacity:0.5;cursor:wait;}
   #btn-desmarcar{color:#6C5B7B;border-color:#6C5B7B;}
+  #btn-copiar-fecha{color:#3A6EA5;border-color:#3A6EA5;}
 
   .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:20px;font-size:0.85rem;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center;}
   .toast.show{opacity:0.95;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:var(--white);border-radius:12px;padding:18px;max-width:360px;width:100%;max-height:80vh;overflow-y:auto;}
+  .modal-box h3{margin:0 0 14px;font-size:1rem;}
+  .modal-box label{font-size:0.78rem;color:#6b6b60;display:block;margin-bottom:4px;}
+  .modal-box input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:12px;font-size:0.95rem;background:var(--paper);}
+  .modal-actions{display:flex;gap:8px;margin-top:6px;}
+  .modal-actions button{flex:1;padding:10px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-size:0.9rem;}
+  .modal-crear{background:var(--green);color:#fff;}
+  .modal-cancelar{background:var(--paper);color:var(--ink);border:1px solid var(--line) !important;}
+  .copiar-opcion{padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer;background:var(--paper);font-size:0.92rem;}
+  .copiar-opcion:active{background:var(--green-soft);}
+  .copiar-opcion .count{font-size:0.78rem;color:#6b6b60;}
 
   section.hist{padding:6px 16px 30px;}
   section.hist h2{font-size:0.95rem;color:#6b6b60;border-top:2px dashed var(--line);padding-top:14px;margin:10px 0 8px;}
@@ -203,6 +232,8 @@
   </div>
 </header>
 
+<div class="tabs" id="tabs"></div>
+
 <div class="totals">
   <div class="card pend"><span class="label">Pendiente</span><span class="val" id="t-pend">$0</span></div>
   <div class="card comp"><span class="label">Comprado</span><span class="val" id="t-comp">$0</span></div>
@@ -223,6 +254,7 @@
 
 <div class="actions">
   <button id="btn-copiar">📋 Copiar lista</button>
+  <button id="btn-copiar-fecha">🗓️ Copiar de otra fecha</button>
   <button id="btn-finalizar" disabled>✅ Finalizar compra</button>
   <button id="btn-desmarcar">↺ Desmarcar todos</button>
   <button id="btn-importar">📥 Importar Excel/PDF</button>
@@ -235,6 +267,30 @@
 </section>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal-nueva">
+  <div class="modal-box">
+    <h3>🗓️ Nueva lista por fecha</h3>
+    <label>Fecha</label>
+    <input type="date" id="nueva-fecha">
+    <label>Nombre (opcional)</label>
+    <input type="text" id="nueva-nombre" placeholder="Ej: Compra del finde">
+    <div class="modal-actions">
+      <button class="modal-crear" onclick="crearLista()">Crear</button>
+      <button class="modal-cancelar" onclick="cerrarModalNueva()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-copiar">
+  <div class="modal-box">
+    <h3>🗓️ Copiar productos de otra fecha</h3>
+    <div id="panel-copiar-lista"></div>
+    <div class="modal-actions">
+      <button class="modal-cancelar" onclick="cerrarModalCopiar()">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 if(window.pdfjsLib){
@@ -255,8 +311,10 @@ const CATEGORIAS = [
   {nombre:'Otros', color:'#8a8a7c'},
 ];
 
-const CACHE_KEY = 'lista_compras_cache';
-let items = [];
+const CACHE_KEY = 'lista_compras_cache_v2';
+let listas = [];
+let listaActivaId = null;
+let items = []; // referencia a la lista activa (listas.find(...).items)
 let historial = [];
 let listo = false;
 let filtroActivo = 'Todas';
@@ -278,7 +336,40 @@ function marcarSync(ok, msg){
 }
 
 function guardarCacheLocal(){
-  localStorage.setItem(CACHE_KEY, JSON.stringify({items, historial}));
+  localStorage.setItem(CACHE_KEY, JSON.stringify({listas, historial, listaActivaId}));
+}
+
+function obtenerListaActiva(){
+  return listas.find(l => l.id === listaActivaId) || listas[0];
+}
+
+function sincronizarListaActiva(){
+  const l = obtenerListaActiva();
+  if(l) l.items = items;
+}
+
+function hoyISO(){
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off*60000).toISOString().slice(0,10);
+}
+
+function formatFechaCorta(fechaStr){
+  if(!fechaStr) return '';
+  const hoy = hoyISO();
+  const ayer = new Date(); ayer.setDate(ayer.getDate()-1);
+  const manana = new Date(); manana.setDate(manana.getDate()+1);
+  const ayerISO = new Date(ayer.getTime() - ayer.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const mananaISO = new Date(manana.getTime() - manana.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  if(fechaStr === hoy) return 'Hoy';
+  if(fechaStr === ayerISO) return 'Ayer';
+  if(fechaStr === mananaISO) return 'Mañana';
+  const [y,m,d] = fechaStr.split('-');
+  return `${d}/${m}`;
+}
+
+function etiquetaLista(l){
+  return (l.nombre && l.nombre.trim()) ? l.nombre.trim() : formatFechaCorta(l.fecha);
 }
 
 async function cargarDatos(){
@@ -286,17 +377,30 @@ async function cargarDatos(){
     const cache = localStorage.getItem(CACHE_KEY);
     if(cache){
       const d = JSON.parse(cache);
-      items = d.items || [];
+      listas = d.listas || [];
       historial = d.historial || [];
-      listo = true;
-      render();
+      listaActivaId = d.listaActivaId || (listas[0] && listas[0].id);
+      if(listas.length){
+        items = obtenerListaActiva().items;
+        listo = true;
+        render();
+      }
     }
   }catch(e){}
 
   try{
-    const r = await fetch('/api/items');
-    if(!r.ok) throw new Error('items fetch failed');
-    items = await r.json();
+    const r = await fetch('/api/listas');
+    if(!r.ok) throw new Error('listas fetch failed');
+    let data = await r.json();
+    if(!Array.isArray(data) || data.length === 0){
+      data = [{ id: 'lista_' + Date.now(), fecha: hoyISO(), nombre: '', items: [] }];
+    }
+    listas = data;
+    if(!listaActivaId || !listas.find(l=>l.id===listaActivaId)){
+      const deHoy = listas.find(l=>l.fecha === hoyISO());
+      listaActivaId = (deHoy || listas[0]).id;
+    }
+    items = obtenerListaActiva().items;
     listo = true;
     guardarCacheLocal();
     marcarSync(true);
@@ -317,14 +421,15 @@ async function cargarDatos(){
 }
 
 function guardarItems(inmediato){
+  sincronizarListaActiva();
   guardarCacheLocal();
   clearTimeout(itemsSaveTimeout);
   const enviar = async () => {
     try{
-      const r = await fetch('/api/items', {
+      const r = await fetch('/api/listas', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({items})
+        body: JSON.stringify({listas})
       });
       if(!r.ok) throw new Error('save failed');
       marcarSync(true);
@@ -359,12 +464,111 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'hidden' && itemsSaveTimeout){
     clearTimeout(itemsSaveTimeout);
     itemsSaveTimeout = null;
+    sincronizarListaActiva();
     try{
-      const blob = new Blob([JSON.stringify({items})], {type:'application/json'});
-      navigator.sendBeacon('/api/items', blob);
+      const blob = new Blob([JSON.stringify({listas})], {type:'application/json'});
+      navigator.sendBeacon('/api/listas', blob);
     }catch(e){}
   }
 });
+
+/* ---------- Solapas por fecha ---------- */
+
+function renderTabs(){
+  const cont = $('tabs');
+  const ordenadas = [...listas].sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||''));
+  let html = ordenadas.map(l=>{
+    const activa = l.id === listaActivaId;
+    return `<div class="chip ${activa?'active':''}" onclick="cambiarLista('${l.id}')">
+      ${escapeHtml(etiquetaLista(l))} <span class="count">(${l.items.length})</span>
+      ${listas.length>1?`<span class="tab-del" onclick="event.stopPropagation(); borrarLista('${l.id}')">✕</span>`:''}
+    </div>`;
+  }).join('');
+  html += `<div class="chip chip-add" onclick="abrirModalNueva()">+ Nueva fecha</div>`;
+  cont.innerHTML = html;
+}
+
+function cambiarLista(id){
+  if(id === listaActivaId) return;
+  sincronizarListaActiva();
+  guardarItems(true);
+  listaActivaId = id;
+  items = obtenerListaActiva().items;
+  editIndex = null;
+  filtroActivo = 'Todas';
+  render();
+}
+
+function abrirModalNueva(){
+  $('nueva-fecha').value = hoyISO();
+  $('nueva-nombre').value = '';
+  $('modal-nueva').classList.add('show');
+}
+function cerrarModalNueva(){
+  $('modal-nueva').classList.remove('show');
+}
+function crearLista(){
+  const fecha = $('nueva-fecha').value || hoyISO();
+  const nombre = $('nueva-nombre').value.trim();
+  const id = 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  sincronizarListaActiva();
+  const nuevaLista = { id, fecha, nombre, items: [] };
+  listas.push(nuevaLista);
+  listaActivaId = id;
+  items = nuevaLista.items;
+  editIndex = null;
+  filtroActivo = 'Todas';
+  cerrarModalNueva();
+  render();
+  guardarItems(true);
+  mostrarToast('Nueva lista creada 🗓️');
+}
+
+function borrarLista(id){
+  if(listas.length <= 1){ mostrarToast('Tiene que quedar al menos una lista'); return; }
+  const l = listas.find(x=>x.id===id);
+  if(!l) return;
+  const confirmar = confirm(`¿Borrar la lista "${etiquetaLista(l)}" y sus ${l.items.length} productos? No se puede deshacer.`);
+  if(!confirmar) return;
+  listas = listas.filter(x=>x.id!==id);
+  if(listaActivaId === id){
+    listaActivaId = listas[0].id;
+    items = listas[0].items;
+    editIndex = null;
+    filtroActivo = 'Todas';
+  }
+  render();
+  guardarItems(true);
+  mostrarToast('Lista eliminada 🗑️');
+}
+
+/* ---------- Copiar productos de otra fecha ---------- */
+
+function abrirModalCopiar(){
+  const otras = listas.filter(l=>l.id!==listaActivaId);
+  if(otras.length === 0){ mostrarToast('No hay otras fechas para copiar'); return; }
+  const cont = $('panel-copiar-lista');
+  cont.innerHTML = otras.map(l=>`
+    <div class="copiar-opcion" onclick="copiarDeOtraLista('${l.id}')">
+      ${escapeHtml(etiquetaLista(l))} <span class="count">(${l.items.length} productos)</span>
+    </div>
+  `).join('');
+  $('modal-copiar').classList.add('show');
+}
+function cerrarModalCopiar(){
+  $('modal-copiar').classList.remove('show');
+}
+function copiarDeOtraLista(id){
+  const origen = listas.find(x=>x.id===id);
+  if(!origen) return;
+  const copiados = JSON.parse(JSON.stringify(origen.items)).map(it=>({...it, comprado:false}));
+  items = items.concat(copiados);
+  sincronizarListaActiva();
+  cerrarModalCopiar();
+  render();
+  guardarItems(true);
+  mostrarToast(`Se copiaron ${copiados.length} productos de "${etiquetaLista(origen)}" 📋`);
+}
 
 function renderFiltros(){
   const cont = $('filtros');
@@ -390,6 +594,7 @@ function render(){
   const cont = $('lista');
   if(!listo) return;
 
+  renderTabs();
   renderFiltros();
 
   if(items.length === 0){
@@ -538,7 +743,8 @@ function mostrarToast(msg){
 
 $('btn-copiar').addEventListener('click', ()=>{
   if(items.length === 0){ mostrarToast('La lista está vacía'); return; }
-  let texto = '🛒 LISTA DE COMPRAS\n\n';
+  const etiqueta = etiquetaLista(obtenerListaActiva());
+  let texto = `🛒 LISTA DE COMPRAS (${etiqueta})\n\n`;
   CATEGORIAS.forEach(cat=>{
     const deEstaCat = items.filter(it => (it.categoria || 'Otros') === cat.nombre);
     if(deEstaCat.length === 0) return;
@@ -559,6 +765,8 @@ $('btn-copiar').addEventListener('click', ()=>{
     mostrarToast('No se pudo copiar');
   });
 });
+
+$('btn-copiar-fecha').addEventListener('click', abrirModalCopiar);
 
 $('btn-finalizar').addEventListener('click', async ()=>{
   if(items.length === 0) return;
@@ -664,7 +872,6 @@ function detectarColumnas(filas){
   if(mejorPuntaje >= 2){
     return { filaHeader: mejorFila, mapa: mapaMejor };
   }
-  // Sin encabezados reconocibles: asumimos nombre, cantidad, precio en las primeras 3 columnas
   return { filaHeader: -1, mapa: { nombre: 0, cantidad: 1, precio: 2 } };
 }
 
@@ -814,6 +1021,7 @@ $('file-importar').addEventListener('change', async (e) => {
     if(!confirmar) return;
 
     items = items.concat(nuevosItems);
+    sincronizarListaActiva();
     render();
     guardarItems(true);
     mostrarToast(`Se importaron ${nuevosItems.length} productos 📥`);
