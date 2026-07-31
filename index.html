@@ -237,6 +237,7 @@ let historial = [];
 let listo = false;
 let filtroActivo = 'Todas';
 let editIndex = null;
+let itemsSaveTimeout = null;
 
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -257,6 +258,7 @@ function guardarCacheLocal(){
 }
 
 async function cargarDatos(){
+  // Pintado instantáneo con la última copia local, mientras llega la nube
   try{
     const cache = localStorage.getItem(CACHE_KEY);
     if(cache){
@@ -268,12 +270,11 @@ async function cargarDatos(){
     }
   }catch(e){}
 
+  // Los items se muestran apenas llegan, sin esperar al historial (que suele pesar mas)
   try{
-    const r = await fetch('/api/data');
-    if(!r.ok) throw new Error('fetch failed');
-    const data = await r.json();
-    items = data.items || [];
-    historial = data.historial || [];
+    const r = await fetch('/api/items');
+    if(!r.ok) throw new Error('items fetch failed');
+    items = await r.json();
     listo = true;
     guardarCacheLocal();
     marcarSync(true);
@@ -283,15 +284,50 @@ async function cargarDatos(){
     marcarSync(false, 'Sin conexión, mostrando copia local');
     render();
   }
+
+  // El historial se trae en segundo plano y no bloquea la vista principal
+  try{
+    const r2 = await fetch('/api/historial');
+    if(!r2.ok) throw new Error('historial fetch failed');
+    historial = await r2.json();
+    guardarCacheLocal();
+    renderHistorial();
+  }catch(e){
+    // silencioso: se queda con lo que haya en la copia local
+  }
 }
 
-async function guardarTodo(){
+function guardarItems(inmediato){
+  guardarCacheLocal();
+  clearTimeout(itemsSaveTimeout);
+  const enviar = async () => {
+    try{
+      const r = await fetch('/api/items', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({items})
+      });
+      if(!r.ok) throw new Error('save failed');
+      marcarSync(true);
+    }catch(e){
+      marcarSync(false, 'No se pudo guardar en la nube (se guardó local)');
+    }
+  };
+  if(inmediato){
+    enviar();
+  } else {
+    marcarSync(true, 'Guardando...');
+    itemsSaveTimeout = setTimeout(enviar, 400);
+  }
+}
+
+async function guardarHistorial(){
   guardarCacheLocal();
   try{
-    const r = await fetch('/api/data', {
+    const r = await fetch('/api/historial', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({items, historial})
+      body: JSON.stringify({historial})
     });
     if(!r.ok) throw new Error('save failed');
     marcarSync(true);
@@ -299,6 +335,18 @@ async function guardarTodo(){
     marcarSync(false, 'No se pudo guardar en la nube (se guardó local)');
   }
 }
+
+// Si la app pasa a segundo plano con un guardado pendiente, lo mandamos igual con sendBeacon
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden' && itemsSaveTimeout){
+    clearTimeout(itemsSaveTimeout);
+    itemsSaveTimeout = null;
+    try{
+      const blob = new Blob([JSON.stringify({items})], {type:'application/json'});
+      navigator.sendBeacon('/api/items', blob);
+    }catch(e){}
+  }
+});
 
 function renderFiltros(){
   const cont = $('filtros');
@@ -425,7 +473,7 @@ function guardarEdicion(i){
   items[i] = {...items[i], nombre, categoria, precio, cant};
   editIndex = null;
   render();
-  guardarTodo();
+  guardarItems(true);
   mostrarToast('Producto actualizado ✏️');
 }
 
@@ -438,8 +486,8 @@ function escapeAttr(s){
   return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
-function toggle(i){ items[i].comprado = !items[i].comprado; render(); guardarTodo(); }
-function borrar(i){ items.splice(i,1); if(editIndex===i) editIndex=null; render(); guardarTodo(); }
+function toggle(i){ items[i].comprado = !items[i].comprado; render(); guardarItems(false); }
+function borrar(i){ items.splice(i,1); if(editIndex===i) editIndex=null; render(); guardarItems(true); }
 
 function agregar(){
   const nombre = $('f-nombre').value.trim();
@@ -452,7 +500,7 @@ function agregar(){
   $('f-precio').value = '';
   $('f-cant').value = 1;
   render();
-  guardarTodo();
+  guardarItems(true);
   $('f-nombre').focus();
 }
 
@@ -508,7 +556,7 @@ $('btn-finalizar').addEventListener('click', async ()=>{
   editIndex = null;
   filtroActivo = 'Todas';
   render();
-  await guardarTodo();
+  await Promise.all([guardarItems(true), guardarHistorial()]);
   mostrarToast('Compra guardada en el historial 📦');
 });
 
@@ -520,7 +568,7 @@ $('btn-desmarcar').addEventListener('click', async ()=>{
   if(!confirmar) return;
   items.forEach(it => it.comprado = false);
   render();
-  await guardarTodo();
+  guardarItems(true);
   mostrarToast('Se desmarcaron todos ↺');
 });
 
@@ -529,7 +577,7 @@ $('btn-importar').addEventListener('click', async ()=>{
   if(!confirmar) return;
   items = items.concat(JSON.parse(JSON.stringify(SEED_ITEMS)));
   render();
-  await guardarTodo();
+  guardarItems(true);
   mostrarToast(`Se importaron ${SEED_ITEMS.length} productos 📥`);
 });
 
@@ -560,7 +608,7 @@ function toggleDetalle(i){
 function borrarHist(i){
   historial.splice(i,1);
   render();
-  guardarTodo();
+  guardarHistorial();
 }
 
 llenarSelectCategorias();
