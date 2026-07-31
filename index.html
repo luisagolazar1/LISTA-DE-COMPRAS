@@ -661,7 +661,22 @@ function render(){
     const inp = document.getElementById(`e-nombre-${editIndex}`);
     if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
   }
+
+  ajustarStickyOffsets();
 }
+
+function ajustarStickyOffsets(){
+  const totalsEl = document.querySelector('.totals');
+  const addBarEl = document.querySelector('.add-bar');
+  const filtrosEl = document.querySelector('.filtros');
+  if(!totalsEl || !addBarEl || !filtrosEl) return;
+  const hTotals = totalsEl.offsetHeight;
+  addBarEl.style.top = hTotals + 'px';
+  const hAddBar = addBarEl.offsetHeight;
+  filtrosEl.style.top = (hTotals + hAddBar) + 'px';
+}
+
+window.addEventListener('resize', ajustarStickyOffsets);
 
 function renderFilaEdicion(it){
   const i = it._i;
