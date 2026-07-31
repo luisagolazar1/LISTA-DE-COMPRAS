@@ -102,50 +102,40 @@
   .item.comprado .nombre{text-decoration:line-through;color:#5c6f63;}
   .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--green);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--green);flex-shrink:0;}
   .item.comprado .check{background:var(--green);color:#fff;}
-  .info{cursor:pointer;}
-  .info .nombre{font-weight:600;font-size:0.98rem;}
+  .info{cursor:pointer;min-width:0;}
+  .info .nombre{font-weight:600;font-size:0.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .info .detalle{font-size:0.78rem;color:#7a7a6e;font-family:'Courier New',monospace;margin-top:2px;}
   .subtotal{font-family:'Courier New',monospace;font-weight:700;font-size:0.98rem;text-align:right;min-width:60px;}
   .edit-btn{border:none;background:none;color:var(--blue);font-size:1rem;cursor:pointer;padding:4px 4px;flex-shrink:0;}
   .del{border:none;background:none;color:var(--red);font-size:1.1rem;cursor:pointer;padding:4px 4px;flex-shrink:0;}
   .empty{text-align:center;color:#9a9a8c;padding:30px 10px;font-size:0.9rem;}
 
-  .item-edit{
+  /* Edicion en linea, dentro de la misma fila */
+  .item.editando{
     background:var(--amber-soft);
-    border:1px solid var(--amber);
-    border-radius:var(--radius);
-    padding:12px 10px;
-    margin-bottom:8px;
+    border-color:var(--amber);
+    align-items:start;
   }
-  .item-edit .edit-grid{
-    display:flex;
-    gap:6px;
-    flex-wrap:wrap;
-    margin-bottom:8px;
+  .item.editando .check{margin-top:2px;}
+  .info-edit{display:flex; flex-direction:column; gap:5px; min-width:0;}
+  .info-edit input.e-nombre-inline{
+    font-weight:600; font-size:0.95rem; border:1px solid var(--line); border-radius:6px;
+    padding:6px 8px; background:var(--white); width:100%; color:var(--ink);
   }
-  .item-edit input, .item-edit select{
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:8px 9px;
-    font-size:0.92rem;
-    background:var(--white);
+  .fila-mini{display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
+  .fila-mini input.e-cant-inline, .fila-mini input.e-precio-inline{
+    width:58px; border:1px solid var(--line); border-radius:6px; padding:5px 6px;
+    font-family:'Courier New',monospace; font-size:0.8rem; background:var(--white); color:var(--ink);
   }
-  .item-edit .e-nombre{flex:2 1 130px;}
-  .item-edit .e-categoria{flex:1 1 140px;}
-  .item-edit .e-precio{flex:1 1 75px;}
-  .item-edit .e-cant{flex:1 1 60px;}
-  .item-edit .edit-actions{display:flex;gap:8px;}
-  .item-edit .edit-actions button{
-    flex:1;
-    padding:8px;
-    border-radius:8px;
-    border:none;
-    font-weight:700;
-    font-size:0.85rem;
-    cursor:pointer;
+  .fila-mini input.e-precio-inline{width:74px;}
+  .fila-mini .x-sep{font-size:0.78rem; color:#7a7a6e;}
+  .fila-mini select.e-cat-inline{
+    border:1px solid var(--line); border-radius:6px; padding:5px 6px; font-size:0.7rem;
+    background:var(--white); color:var(--ink); max-width:118px;
   }
-  .btn-guardar{background:var(--green);color:#fff;}
-  .btn-cancelar{background:var(--white);color:var(--ink);border:1px solid var(--line) !important;}
+  .item.editando .subtotal{align-self:start; margin-top:2px;}
+  .accion-ok{border:none;background:none;color:var(--green);font-size:1.2rem;cursor:pointer;padding:4px 4px;flex-shrink:0;align-self:start;}
+  .accion-cancel{border:none;background:none;color:var(--red);font-size:1.05rem;cursor:pointer;padding:4px 4px;flex-shrink:0;align-self:start;}
 
   .actions{display:flex;gap:8px;padding:10px 16px 4px;flex-wrap:wrap;}
   .actions button{flex:1;min-width:130px;padding:11px;border-radius:8px;border:1px solid var(--line);background:var(--white);font-weight:600;font-size:0.9rem;cursor:pointer;}
@@ -342,7 +332,7 @@ function render(){
       </div>`;
       deEstaCat.forEach(it=>{
         if(it._i === editIndex){
-          html += renderFormEdicion(it);
+          html += renderFilaEdicion(it);
           return;
         }
         const sub = it.precio * it.cant;
@@ -370,21 +360,37 @@ function render(){
   $('btn-finalizar').disabled = items.length === 0;
 
   renderHistorial();
+
+  if(editIndex !== null){
+    const inp = document.getElementById(`e-nombre-${editIndex}`);
+    if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  }
 }
 
-function renderFormEdicion(it){
-  return `<div class="item-edit">
-    <div class="edit-grid">
-      <input class="e-nombre" type="text" id="e-nombre-${it._i}" value="${escapeAttr(it.nombre)}">
-      <select class="e-categoria" id="e-categoria-${it._i}">${opcionesCategoria(it.categoria||'Otros')}</select>
-      <input class="e-precio" type="number" step="0.01" min="0" id="e-precio-${it._i}" value="${it.precio}">
-      <input class="e-cant" type="number" min="1" id="e-cant-${it._i}" value="${it.cant}">
+function renderFilaEdicion(it){
+  const i = it._i;
+  return `<div class="item editando">
+    <button class="check" onclick="toggle(${i})">${it.comprado?'✓':''}</button>
+    <div class="info-edit">
+      <input class="e-nombre-inline" type="text" id="e-nombre-${i}" value="${escapeAttr(it.nombre)}" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
+      <div class="fila-mini">
+        <input class="e-cant-inline" type="number" min="1" id="e-cant-${i}" value="${it.cant}" oninput="actualizarSubtotalEdicion(${i})" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
+        <span class="x-sep">x</span>
+        <input class="e-precio-inline" type="number" step="0.01" min="0" id="e-precio-${i}" value="${it.precio}" oninput="actualizarSubtotalEdicion(${i})" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
+        <select class="e-cat-inline" id="e-categoria-${i}">${opcionesCategoria(it.categoria||'Otros')}</select>
+      </div>
     </div>
-    <div class="edit-actions">
-      <button class="btn-guardar" onclick="guardarEdicion(${it._i})">✓ Guardar</button>
-      <button class="btn-cancelar" onclick="cancelarEdicion()">✕ Cancelar</button>
-    </div>
+    <div class="subtotal" id="edit-subtotal-${i}">${fmt(it.precio*it.cant)}</div>
+    <button class="accion-ok" onclick="guardarEdicion(${i})">✓</button>
+    <button class="accion-cancel" onclick="cancelarEdicion()">✕</button>
   </div>`;
+}
+
+function actualizarSubtotalEdicion(i){
+  const cant = parseFloat($(`e-cant-${i}`).value) || 0;
+  const precio = parseFloat($(`e-precio-${i}`).value) || 0;
+  const el = $(`edit-subtotal-${i}`);
+  if(el) el.textContent = fmt(cant*precio);
 }
 
 function iniciarEdicion(i){
