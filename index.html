@@ -97,8 +97,16 @@
   .cat-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .cat-header .cat-subtotal{font-family:'Courier New',monospace;font-size:0.82rem;color:#6b6b60;font-weight:700;}
 
-  .item{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:8px;padding:11px 10px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px;}
-  .item.comprado{background:var(--green-soft);opacity:0.85;}
+  .item{
+    display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:8px;
+    padding:11px 10px 11px 12px;
+    background:var(--white);
+    border:1px solid var(--line);
+    border-left:5px solid var(--cat-color, var(--line));
+    border-radius:var(--radius);
+    margin-bottom:8px;
+  }
+  .item.comprado{background:var(--green-soft);opacity:0.8;}
   .item.comprado .nombre{text-decoration:line-through;color:#5c6f63;}
   .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--green);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--green);flex-shrink:0;}
   .item.comprado .check{background:var(--green);color:#fff;}
@@ -114,6 +122,7 @@
   .item.editando{
     background:var(--amber-soft);
     border-color:var(--amber);
+    border-left-color:var(--amber);
     align-items:start;
   }
   .item.editando .check{margin-top:2px;}
@@ -143,6 +152,7 @@
   #btn-finalizar{color:var(--amber);border-color:var(--amber);}
   #btn-finalizar:disabled{opacity:0.4;cursor:default;}
   #btn-importar{color:var(--blue);border-color:var(--blue);}
+  #btn-desmarcar{color:#6C5B7B;border-color:#6C5B7B;}
 
   .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:20px;font-size:0.85rem;opacity:0;transition:opacity .25s;pointer-events:none;}
   .toast.show{opacity:0.95;}
@@ -193,6 +203,7 @@
 <div class="actions">
   <button id="btn-copiar">📋 Copiar lista</button>
   <button id="btn-finalizar" disabled>✅ Finalizar compra</button>
+  <button id="btn-desmarcar">↺ Desmarcar todos</button>
   <button id="btn-importar">📥 Importar planilla</button>
 </div>
 
@@ -336,7 +347,8 @@ function render(){
           return;
         }
         const sub = it.precio * it.cant;
-        html += `<div class="item ${it.comprado?'comprado':''}">
+        const colorBorde = colorCat(it.categoria || 'Otros');
+        html += `<div class="item ${it.comprado?'comprado':''}" style="--cat-color:${colorBorde}">
           <button class="check" onclick="toggle(${it._i})">${it.comprado?'✓':''}</button>
           <div class="info" onclick="iniciarEdicion(${it._i})">
             <div class="nombre">${escapeHtml(it.nombre)}</div>
@@ -369,7 +381,8 @@ function render(){
 
 function renderFilaEdicion(it){
   const i = it._i;
-  return `<div class="item editando">
+  const colorBorde = colorCat(it.categoria || 'Otros');
+  return `<div class="item editando" style="--cat-color:${colorBorde}">
     <button class="check" onclick="toggle(${i})">${it.comprado?'✓':''}</button>
     <div class="info-edit">
       <input class="e-nombre-inline" type="text" id="e-nombre-${i}" value="${escapeAttr(it.nombre)}" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
@@ -497,6 +510,18 @@ $('btn-finalizar').addEventListener('click', async ()=>{
   render();
   await guardarTodo();
   mostrarToast('Compra guardada en el historial 📦');
+});
+
+$('btn-desmarcar').addEventListener('click', async ()=>{
+  if(items.length === 0) return;
+  const marcados = items.filter(i=>i.comprado).length;
+  if(marcados === 0){ mostrarToast('No hay nada marcado como comprado'); return; }
+  const confirmar = confirm(`¿Desmarcar los ${marcados} productos comprados y volverlos a pendiente?`);
+  if(!confirmar) return;
+  items.forEach(it => it.comprado = false);
+  render();
+  await guardarTodo();
+  mostrarToast('Se desmarcaron todos ↺');
 });
 
 $('btn-importar').addEventListener('click', async ()=>{
