@@ -107,7 +107,7 @@
   #f-nombre{width:130px;}
   #f-precio{width:80px;}
   #f-cant{width:56px;}
-  #f-categoria{width:140px;}
+  #f-categoria{width:175px;}
   .add-bar button{flex-shrink:0;border:none;background:var(--green);color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.95rem;white-space:nowrap;}
   .add-bar button:active{transform:scale(0.97);}
 
@@ -175,9 +175,10 @@
   }
   .fila-mini input.e-precio-inline{width:74px;}
   .fila-mini .x-sep{font-size:0.78rem; color:#7a7a6e;}
-  .fila-mini select.e-cat-inline{
-    border:1px solid var(--line); border-radius:6px; padding:5px 6px; font-size:0.7rem;
-    background:var(--white); color:var(--ink); max-width:118px;
+  select.e-cat-inline{
+    width:100%;
+    border:1px solid var(--line); border-radius:6px; padding:7px 8px; font-size:0.85rem;
+    background:var(--white); color:var(--ink);
   }
   .fila-stock{
     display:grid;
@@ -713,8 +714,8 @@ function renderFilaEdicion(it){
         <input class="e-cant-inline" type="number" min="0" id="e-cant-${i}" value="${it.cant}" ${stockMax>0?'readonly':''} oninput="actualizarSubtotalEdicion(${i})" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
         <span class="x-sep">x</span>
         <input class="e-precio-inline" type="number" step="0.01" min="0" id="e-precio-${i}" value="${it.precio}" oninput="actualizarSubtotalEdicion(${i})" onkeydown="if(event.key==='Enter')guardarEdicion(${i})">
-        <select class="e-cat-inline" id="e-categoria-${i}">${opcionesCategoria(it.categoria||'Otros')}</select>
       </div>
+      <select class="e-cat-inline" id="e-categoria-${i}">${opcionesCategoria(it.categoria||'Otros')}</select>
       <div class="fila-stock">
         <div class="stock-grupo">
           <span class="stock-label">📦 Tengo</span>
