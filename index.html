@@ -142,9 +142,9 @@
     margin-bottom:8px;
   }
   .item.comprado{background:var(--green-soft);opacity:0.8;}
-  .item.stock-completo{background:#CFE5D8; border-color:var(--green);}
-  .item.stock-completo .detalle{color:var(--green); font-weight:600;}
-  .item.stock-completo.comprado{background:#BFDCC9;}
+  .item.stock-completo{background:#DCE8F5; border-color:var(--blue);}
+  .item.stock-completo .detalle{color:var(--blue); font-weight:700;}
+  .item.stock-completo.comprado{background:#C7DCF2;}
   .item.comprado .nombre{text-decoration:line-through;color:#5c6f63;}
   .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--green);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--green);flex-shrink:0;}
   .item.comprado .check{background:var(--green);color:#fff;}
@@ -634,7 +634,7 @@ function render(){
         const detalleTxt = tieneStock
           ? (it.cant > 0
               ? `📦 ${it.stockActual||0}/${it.stockMax} · Comprar ${it.cant} · ${fmt(it.precio)} c/u`
-              : `📦 ${it.stockActual||0}/${it.stockMax} · <strong>Stock completo ✅</strong>`)
+              : `📦 ${it.stockActual||0}/${it.stockMax} · <strong>Stock completo</strong>`)
           : `${it.cant} x ${fmt(it.precio)}`;
         html += `<div class="item ${it.comprado?'comprado':''} ${stockCompleto?'stock-completo':''}" style="--cat-color:${colorBorde}">
           <button class="check" onclick="toggle(${it._i})">${it.comprado?'✓':''}</button>
