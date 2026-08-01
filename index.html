@@ -111,6 +111,38 @@
   .add-bar button{flex-shrink:0;border:none;background:var(--green);color:#fff;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.95rem;white-space:nowrap;}
   .add-bar button:active{transform:scale(0.97);}
 
+  .buscador{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:9px 16px;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
+    position:sticky;
+    z-index:5;
+  }
+  .buscador-icono{font-size:0.9rem; flex-shrink:0; opacity:0.6;}
+  .buscador input{
+    flex:1;
+    min-width:0;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:0.92rem;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .buscador button{
+    flex-shrink:0;
+    border:none;
+    background:var(--line);
+    color:var(--ink);
+    width:26px;height:26px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:0.8rem;
+  }
+
   .filtros{
     display:flex;
     gap:7px;
@@ -120,7 +152,6 @@
     border-bottom:1px solid var(--line);
     -webkit-overflow-scrolling:touch;
     position:sticky;
-    top:110px;
     z-index:4;
   }
   .filtros::-webkit-scrollbar{display:none;}
@@ -265,6 +296,12 @@
   <button id="btn-add">+ Agregar</button>
 </div>
 
+<div class="buscador">
+  <span class="buscador-icono">🔍</span>
+  <input id="f-buscar" type="text" placeholder="Buscar producto..." autocomplete="off">
+  <button id="btn-limpiar-buscar" style="display:none">✕</button>
+</div>
+
 <div class="filtros" id="filtros"></div>
 
 <div class="list" id="lista"><div class="empty">Cargando lista...</div></div>
@@ -335,6 +372,7 @@ let items = []; // referencia a la lista activa (listas.find(...).items)
 let historial = [];
 let listo = false;
 let filtroActivo = 'Todas';
+let busqueda = '';
 let editIndex = null;
 let itemsSaveTimeout = null;
 
@@ -624,6 +662,8 @@ function render(){
   renderTabs();
   renderFiltros();
 
+  const busquedaNorm = normalizar(busqueda);
+
   if(items.length === 0){
     cont.innerHTML = '<div class="empty">Sin productos aún. Agregá el primero arriba 👆</div>';
   } else {
@@ -633,6 +673,7 @@ function render(){
     categoriasAMostrar.forEach(cat=>{
       const deEstaCat = items.map((it,i)=>({...it, _i:i}))
         .filter(it => (it.categoria || 'Otros') === cat.nombre)
+        .filter(it => !busquedaNorm || normalizar(it.nombre).includes(busquedaNorm))
         .sort(compararItems);
       if(deEstaCat.length === 0) return;
       hayAlgo = true;
@@ -667,7 +708,10 @@ function render(){
         </div>`;
       });
     });
-    cont.innerHTML = hayAlgo ? html : '<div class="empty">No hay productos en esta categoría.</div>';
+    const mensajeVacio = busquedaNorm
+      ? `No se encontraron productos para "${escapeHtml(busqueda)}".`
+      : 'No hay productos en esta categoría.';
+    cont.innerHTML = hayAlgo ? html : `<div class="empty">${mensajeVacio}</div>`;
   }
 
   const pend = items.filter(i=>!i.comprado).reduce((s,i)=>s+i.precio*i.cant,0);
@@ -691,12 +735,15 @@ function render(){
 function ajustarStickyOffsets(){
   const totalsEl = document.querySelector('.totals');
   const addBarEl = document.querySelector('.add-bar');
+  const buscadorEl = document.querySelector('.buscador');
   const filtrosEl = document.querySelector('.filtros');
-  if(!totalsEl || !addBarEl || !filtrosEl) return;
+  if(!totalsEl || !addBarEl || !buscadorEl || !filtrosEl) return;
   const hTotals = totalsEl.offsetHeight;
   addBarEl.style.top = hTotals + 'px';
   const hAddBar = addBarEl.offsetHeight;
-  filtrosEl.style.top = (hTotals + hAddBar) + 'px';
+  buscadorEl.style.top = (hTotals + hAddBar) + 'px';
+  const hBuscador = buscadorEl.offsetHeight;
+  filtrosEl.style.top = (hTotals + hAddBar + hBuscador) + 'px';
 }
 
 window.addEventListener('resize', ajustarStickyOffsets);
@@ -811,6 +858,19 @@ $('btn-add').addEventListener('click', agregar);
   inp.addEventListener('keydown', e=>{
     if(e.key === 'Enter'){ e.preventDefault(); agregar(); }
   });
+});
+
+$('f-buscar').addEventListener('input', e=>{
+  busqueda = e.target.value;
+  $('btn-limpiar-buscar').style.display = busqueda ? 'block' : 'none';
+  render();
+});
+$('btn-limpiar-buscar').addEventListener('click', ()=>{
+  busqueda = '';
+  $('f-buscar').value = '';
+  $('btn-limpiar-buscar').style.display = 'none';
+  $('f-buscar').focus();
+  render();
 });
 
 function mostrarToast(msg){
