@@ -142,9 +142,9 @@
     margin-bottom:8px;
   }
   .item.comprado{background:var(--green-soft);opacity:0.8;}
-  .item.stock-completo{background:#DCE8F5; border-color:var(--blue);}
-  .item.stock-completo .detalle{color:var(--blue); font-weight:700;}
-  .item.stock-completo.comprado{background:#C7DCF2;}
+  .item.stock-completo{background:#E2E2DC; border-color:#8a8a7c;}
+  .item.stock-completo .detalle{color:#5c5c54; font-weight:700;}
+  .item.stock-completo.comprado{background:#D4D4CC;}
   .item.comprado .nombre{text-decoration:line-through;color:#5c6f63;}
   .check{width:26px;height:26px;border-radius:50%;border:2px solid var(--green);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(--green);flex-shrink:0;}
   .item.comprado .check{background:var(--green);color:#fff;}
@@ -334,6 +334,16 @@ let itemsSaveTimeout = null;
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const colorCat = nombre => (CATEGORIAS.find(c=>c.nombre===nombre) || CATEGORIAS[CATEGORIAS.length-1]).color;
+
+function esFinal(it){
+  const stockCompleto = (it.stockMax||0) > 0 && it.cant === 0;
+  return it.comprado || stockCompleto;
+}
+function compararItems(a, b){
+  const aFinal = esFinal(a), bFinal = esFinal(b);
+  if(aFinal !== bFinal) return aFinal ? 1 : -1;
+  return a.nombre.localeCompare(b.nombre, 'es', {sensitivity:'base'});
+}
 const opcionesCategoria = (seleccionada) => CATEGORIAS.map(c=>`<option value="${c.nombre}" ${c.nombre===seleccionada?'selected':''}>${c.nombre}</option>`).join('');
 
 function llenarSelectCategorias(){
@@ -614,7 +624,9 @@ function render(){
     let html = '';
     let hayAlgo = false;
     categoriasAMostrar.forEach(cat=>{
-      const deEstaCat = items.map((it,i)=>({...it, _i:i})).filter(it => (it.categoria || 'Otros') === cat.nombre);
+      const deEstaCat = items.map((it,i)=>({...it, _i:i}))
+        .filter(it => (it.categoria || 'Otros') === cat.nombre)
+        .sort(compararItems);
       if(deEstaCat.length === 0) return;
       hayAlgo = true;
       const subtotalCat = deEstaCat.reduce((s,it)=>s+it.precio*it.cant,0);
