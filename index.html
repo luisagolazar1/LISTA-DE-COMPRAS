@@ -74,6 +74,7 @@
   .chip .count{opacity:0.65;font-weight:500;}
   .chip-add{background:var(--green-soft);color:var(--green);border-color:var(--green);}
   .tab-del{margin-left:2px;opacity:0.7;font-weight:900;font-size:0.85rem;}
+  .tab-edit{margin-left:2px;opacity:0.7;font-size:0.78rem;}
 
   .totals{
     display:flex;gap:8px;padding:10px 16px;flex-wrap:nowrap;
@@ -336,6 +337,20 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-renombrar">
+  <div class="modal-box">
+    <h3>✏️ Editar lista</h3>
+    <label>Fecha</label>
+    <input type="date" id="renombrar-fecha">
+    <label>Nombre</label>
+    <input type="text" id="renombrar-nombre" placeholder="Ej: Compra del finde">
+    <div class="modal-actions">
+      <button class="modal-crear" onclick="guardarRenombrar()">Guardar</button>
+      <button class="modal-cancelar" onclick="cerrarModalRenombrar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-copiar">
   <div class="modal-box">
     <h3>🗓️ Copiar productos de otra fecha</h3>
@@ -546,11 +561,37 @@ function renderTabs(){
     const activa = l.id === listaActivaId;
     return `<div class="chip ${activa?'active':''}" onclick="cambiarLista('${l.id}')">
       ${escapeHtml(etiquetaLista(l))} <span class="count">(${l.items.length})</span>
+      <span class="tab-edit" onclick="event.stopPropagation(); abrirModalRenombrar('${l.id}')">✏️</span>
       ${listas.length>1?`<span class="tab-del" onclick="event.stopPropagation(); borrarLista('${l.id}')">✕</span>`:''}
     </div>`;
   }).join('');
   html += `<div class="chip chip-add" onclick="abrirModalNueva()">+ Nueva fecha</div>`;
   cont.innerHTML = html;
+}
+
+let renombrandoId = null;
+
+function abrirModalRenombrar(id){
+  const l = listas.find(x=>x.id===id);
+  if(!l) return;
+  renombrandoId = id;
+  $('renombrar-fecha').value = l.fecha || hoyISO();
+  $('renombrar-nombre').value = l.nombre || '';
+  $('modal-renombrar').classList.add('show');
+}
+function cerrarModalRenombrar(){
+  $('modal-renombrar').classList.remove('show');
+  renombrandoId = null;
+}
+function guardarRenombrar(){
+  const l = listas.find(x=>x.id===renombrandoId);
+  if(!l) return;
+  l.fecha = $('renombrar-fecha').value || l.fecha;
+  l.nombre = $('renombrar-nombre').value.trim();
+  cerrarModalRenombrar();
+  render();
+  guardarItems(true);
+  mostrarToast('Lista actualizada ✏️');
 }
 
 function cambiarLista(id){
