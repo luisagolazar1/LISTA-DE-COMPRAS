@@ -264,6 +264,44 @@
   .hist-item .borrar-h{border:none;background:none;color:var(--red);font-size:0.95rem;margin-left:8px;cursor:pointer;}
   .hist-detalle{font-size:0.8rem;color:#555;background:var(--amber-soft);border-radius:8px;padding:8px 10px;margin:-2px 0 8px;display:none;}
   .hist-detalle.show{display:block;}
+
+  /* ---------- Dashboard de inflación ---------- */
+  #btn-dash{color:var(--red);border-color:var(--red);}
+  .dash-overlay{position:fixed;inset:0;background:var(--paper);z-index:60;display:none;flex-direction:column;}
+  .dash-overlay.show{display:flex;}
+  .dash-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--white);border-bottom:1px solid var(--line);}
+  .dash-head h2{margin:0;font-size:1.05rem;}
+  .dash-head button{border:1px solid var(--line);background:var(--paper);width:34px;height:34px;border-radius:50%;font-size:1rem;cursor:pointer;color:var(--ink);}
+  .dash-body{flex:1;overflow-y:auto;padding:12px 16px 40px;-webkit-overflow-scrolling:touch;}
+  .dash-chips{display:flex;gap:7px;overflow-x:auto;margin-bottom:12px;}
+  .dash-chips::-webkit-scrollbar{display:none;}
+  .dash-hero{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .dash-hero .sub{font-size:0.78rem;color:#6b6b60;}
+  .dash-hero .big{font-size:2.1rem;font-weight:800;font-family:'Courier New',monospace;margin:2px 0;}
+  .sube-txt{color:var(--red);} .baja-txt{color:var(--green);} .igual-txt{color:#6b6b60;}
+  .dash-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;}
+  .dash-card h3{font-size:0.82rem;text-transform:uppercase;letter-spacing:0.4px;color:#6b6b60;margin:0 0 8px;}
+  .dash-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;}
+  .dash-card-head h3{margin:0;text-transform:none;font-size:0.9rem;color:var(--ink);}
+  .dash-reset{border:none;background:none;color:var(--blue);font-weight:600;font-size:0.82rem;cursor:pointer;padding:2px 0 6px;}
+  .dash-chart svg{width:100%;height:auto;display:block;}
+  .dash-card input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:0.92rem;background:var(--paper);color:var(--ink);margin-bottom:8px;}
+  .pct{font-family:'Courier New',monospace;font-weight:700;font-size:0.85rem;padding:2px 8px;border-radius:12px;white-space:nowrap;}
+  .pct.sube{background:#F6DDD6;color:var(--red);}
+  .pct.baja{background:#DCEBE2;color:var(--green);}
+  .pct.igual{background:#E8E8E2;color:#6b6b60;}
+  .fam-row{display:grid;grid-template-columns:1fr auto;gap:4px 8px;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px;}
+  .fam-row:last-child, .prod-row:last-child{border-bottom:none;}
+  .fam-row .fam-nombre{font-weight:600;font-size:0.9rem;display:flex;align-items:center;gap:6px;}
+  .fam-row .barra{grid-column:1/-1;height:6px;border-radius:3px;background:var(--paper);overflow:hidden;}
+  .fam-row .barra span{display:block;height:100%;border-radius:3px;}
+  .prod-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:6px;}
+  .prod-row .pr-info{min-width:0;}
+  .pr-nombre{font-weight:600;font-size:0.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pr-det{font-size:0.75rem;color:#7a7a6e;font-family:'Courier New',monospace;font-weight:400;}
+  .fam-row.sel, .prod-row.sel{background:var(--amber-soft);}
+  .dash-nota{font-size:0.72rem;color:#8a8a7c;text-align:center;padding:4px 10px;}
+
 </style>
 </head>
 <body>
@@ -313,6 +351,7 @@
   <button id="btn-finalizar" disabled>✅ Finalizar compra</button>
   <button id="btn-desmarcar">↺ Desmarcar todos</button>
   <button id="btn-importar">📥 Importar Excel/PDF</button>
+  <button id="btn-dash">📈 Inflación</button>
   <input type="file" id="file-importar" accept=".xlsx,.xls,.csv,.pdf" style="display:none">
 </div>
 
@@ -322,6 +361,15 @@
 </section>
 
 <div class="toast" id="toast"></div>
+
+<div class="dash-overlay" id="dash">
+  <div class="dash-head">
+    <h2>📈 Evolución de precios</h2>
+    <button onclick="cerrarDash()">✕</button>
+  </div>
+  <div class="dash-body" id="dash-body"></div>
+</div>
+
 
 <div class="modal-overlay" id="modal-nueva">
   <div class="modal-box">
@@ -860,6 +908,7 @@ function guardarEdicion(i){
   const stockMax = parseFloat($(`e-stock-max-${i}`).value) || 0;
   const cant = stockMax > 0 ? Math.max(0, stockMax - stockActual) : (parseInt($(`e-cant-${i}`).value) || 0);
   if(!nombre){ return; }
+  registrarPrecio(items[i], precio);
   items[i] = {...items[i], nombre, categoria, precio, cant, stockActual, stockMax};
   editIndex = null;
   render();
@@ -885,7 +934,9 @@ function agregar(){
   const cant = parseInt($('f-cant').value) || 1;
   const categoria = $('f-categoria').value || 'Otros';
   if(!nombre){ $('f-nombre').focus(); return; }
-  items.push({nombre, precio, cant, comprado:false, categoria, stockActual:0, stockMax:0});
+  const nuevoItem = {nombre, precio, cant, comprado:false, categoria, stockActual:0, stockMax:0};
+  registrarPrecio(nuevoItem, precio);
+  items.push(nuevoItem);
   $('f-nombre').value = '';
   $('f-precio').value = '';
   $('f-cant').value = 1;
@@ -1201,6 +1252,7 @@ $('file-importar').addEventListener('change', async (e) => {
     const confirmar = confirm(`Se encontraron ${nuevosItems.length} productos en "${file.name}". ¿Agregarlos a la lista actual?`);
     if(!confirmar) return;
 
+    nuevosItems.forEach(it => registrarPrecio(it, it.precio));
     items = items.concat(nuevosItems);
     sincronizarListaActiva();
     render();
@@ -1245,6 +1297,251 @@ function borrarHist(i){
   render();
   guardarHistorial();
 }
+
+/* ---------- Historial de precios y dashboard de inflación ---------- */
+
+function isoDeDate(d){
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+
+// Guarda en el producto cada cambio de precio con su fecha
+function registrarPrecio(it, precioNuevo){
+  if(!(precioNuevo > 0)) return;
+  const lista = obtenerListaActiva();
+  const hoy = hoyISO();
+  const precioViejo = it.precio || 0;
+  it.precios = it.precios || [];
+  // Producto anterior al historial: guardamos su precio viejo con la fecha de su lista
+  if(it.precios.length === 0 && precioViejo > 0 && precioViejo !== precioNuevo && lista){
+    it.precios.push({f: lista.fecha, p: precioViejo});
+  }
+  const ult = it.precios[it.precios.length - 1];
+  if(ult && ult.f === hoy) ult.p = precioNuevo;
+  else if(!ult || ult.p !== precioNuevo) it.precios.push({f: hoy, p: precioNuevo});
+}
+
+function parseFechaHistorial(s){
+  const m = String(s || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(!m) return null;
+  return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+
+// Junta todos los precios conocidos por producto y fecha (listas, historial y cambios registrados)
+function recolectarPuntos(){
+  const mapa = {};
+  const agregarPunto = (it, fecha, precio) => {
+    if(!fecha || !(precio > 0)) return;
+    const k = normalizar(it.nombre);
+    if(!k) return;
+    if(!mapa[k]) mapa[k] = {nombre: it.nombre, categoria: it.categoria || 'Otros', pts: {}};
+    mapa[k].nombre = it.nombre;
+    mapa[k].categoria = it.categoria || 'Otros';
+    mapa[k].pts[fecha] = precio;
+  };
+  historial.forEach(h => {
+    const f = parseFechaHistorial(h.fecha);
+    (h.items || []).forEach(it => agregarPunto(it, f, it.precio));
+  });
+  [...listas].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||'')).forEach(l => {
+    (l.items || []).forEach(it => agregarPunto(it, l.fecha, it.precio));
+  });
+  // Los cambios registrados son los más precisos, van al final para prevalecer
+  historial.forEach(h => (h.items || []).forEach(it => (it.precios || []).forEach(x => agregarPunto(it, x.f, x.p))));
+  listas.forEach(l => (l.items || []).forEach(it => (it.precios || []).forEach(x => agregarPunto(it, x.f, x.p))));
+  return mapa;
+}
+
+function calcularProductos(mapa, periodo){
+  let desde = null;
+  if(periodo !== 'todo'){
+    const d = new Date();
+    d.setDate(d.getDate() - periodo);
+    desde = isoDeDate(d);
+  }
+  const productos = [];
+  Object.keys(mapa).forEach(k => {
+    const m = mapa[k];
+    let pts = Object.keys(m.pts).sort().map(f => ({f, p: m.pts[f]}));
+    if(desde){
+      const antes = pts.filter(x => x.f < desde);
+      const dentro = pts.filter(x => x.f >= desde);
+      if(antes.length) dentro.unshift({f: desde, p: antes[antes.length-1].p});
+      pts = dentro;
+    }
+    if(pts.length === 0) return;
+    const primero = pts[0].p, ultimo = pts[pts.length-1].p;
+    productos.push({
+      clave: k, nombre: m.nombre, categoria: m.categoria, pts, primero, ultimo,
+      var: pts.length >= 2 ? (ultimo/primero - 1) * 100 : null
+    });
+  });
+  return productos;
+}
+
+const promedio = arr => arr.length ? arr.reduce((s,x) => s + x, 0) / arr.length : 0;
+
+// Índice base 100: promedio simple de cómo evolucionó cada producto desde su primer precio
+function serieIndice(prods){
+  const fechas = [...new Set(prods.flatMap(p => p.pts.map(x => x.f)))].sort();
+  return fechas.map(f => {
+    let suma = 0, n = 0;
+    prods.forEach(p => {
+      if(p.pts[0].f > f) return;
+      let precio = p.pts[0].p;
+      for(const x of p.pts){ if(x.f <= f) precio = x.p; else break; }
+      suma += precio / p.primero * 100;
+      n++;
+    });
+    return {f, v: n ? suma/n : 100};
+  });
+}
+
+function fmtPct(v){
+  const r = Math.round(v*10)/10;
+  if(r === 0) return '0,0%';
+  return (r > 0 ? '+' : '') + r.toFixed(1).replace('.', ',') + '%';
+}
+function claseVar(v){
+  const r = Math.round(v*10)/10;
+  return r > 0 ? 'sube' : r < 0 ? 'baja' : 'igual';
+}
+function fechaCortaChart(f){
+  const [y,m,d] = f.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+
+function graficoLinea(serie, fmtY){
+  if(serie.length < 2) return '<div class="empty" style="padding:16px 6px">Se necesitan al menos 2 fechas para graficar.</div>';
+  const W = 320, H = 160, pL = 46, pR = 12, pT = 14, pB = 26;
+  const xs = serie.map(s => new Date(s.f + 'T00:00:00').getTime());
+  const x0 = xs[0], x1 = xs[xs.length-1];
+  let ymin = Math.min(...serie.map(s => s.v)), ymax = Math.max(...serie.map(s => s.v));
+  if(ymin === ymax){ ymin -= 1; ymax += 1; }
+  const mg = (ymax - ymin) * 0.12;
+  ymin -= mg; ymax += mg;
+  const X = t => pL + (x1 === x0 ? 0 : (t - x0) / (x1 - x0)) * (W - pL - pR);
+  const Y = v => pT + (1 - (v - ymin) / (ymax - ymin)) * (H - pT - pB);
+  const color = serie[serie.length-1].v >= serie[0].v ? '#B3452E' : '#2D6A4F';
+  let grid = '';
+  for(let k = 0; k < 3; k++){
+    const v = ymin + (ymax - ymin) * k / 2;
+    const y = Y(v);
+    grid += `<line x1="${pL}" x2="${W-pR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E4DFD0" stroke-width="1"/>`
+          + `<text x="${pL-6}" y="${(y+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#8a8a7c">${fmtY(v)}</text>`;
+  }
+  const linea = serie.map((s,i) => `${X(xs[i]).toFixed(1)},${Y(s.v).toFixed(1)}`).join(' ');
+  const puntos = serie.map((s,i) => `<circle cx="${X(xs[i]).toFixed(1)}" cy="${Y(s.v).toFixed(1)}" r="3" fill="${color}"/>`).join('');
+  return `<div class="dash-chart"><svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${grid}`
+    + `<polyline points="${linea}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${puntos}`
+    + `<text x="${pL}" y="${H-8}" font-size="9" fill="#8a8a7c">${fechaCortaChart(serie[0].f)}</text>`
+    + `<text x="${W-pR}" y="${H-8}" text-anchor="end" font-size="9" fill="#8a8a7c">${fechaCortaChart(serie[serie.length-1].f)}</text></svg></div>`;
+}
+
+let dashPeriodo = 'todo';
+let dashSel = {tipo: 'general', clave: null};
+let dashBusqueda = '';
+let dashMedidos = [];
+let dashFamilias = [];
+const PERIODOS_DASH = [['todo','Todo'], [90,'3 meses'], [180,'6 meses'], [365,'12 meses']];
+
+function abrirDash(){
+  sincronizarListaActiva();
+  $('dash').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  renderDash();
+}
+function cerrarDash(){
+  $('dash').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function irArriba(){ $('dash-body').scrollTo({top: 0, behavior: 'smooth'}); }
+function setDashPeriodo(i){ dashPeriodo = PERIODOS_DASH[i][0]; renderDash(); }
+function selDashGeneral(){ dashSel = {tipo: 'general', clave: null}; renderDash(); }
+function selDashFam(i){ dashSel = {tipo: 'familia', clave: dashFamilias[i].nombre}; renderDash(); irArriba(); }
+function selDashProd(i){ dashSel = {tipo: 'producto', clave: dashMedidos[i].clave}; renderDash(); irArriba(); }
+
+function renderDash(){
+  const mapa = recolectarPuntos();
+  const todos = calcularProductos(mapa, dashPeriodo);
+  dashMedidos = todos.filter(p => p.var !== null).sort((a,b) => b.var - a.var);
+  const body = $('dash-body');
+  const periodoTxt = PERIODOS_DASH.find(p => p[0] === dashPeriodo)[1];
+  const chips = `<div class="dash-chips">${PERIODOS_DASH.map((p,i) =>
+    `<div class="chip ${p[0] === dashPeriodo ? 'active' : ''}" onclick="setDashPeriodo(${i})">${p[1]}</div>`).join('')}</div>`;
+
+  if(dashMedidos.length === 0){
+    body.innerHTML = chips + `<div class="dash-card"><div class="empty" style="padding:20px 6px">Todavía no hay precios para comparar.<br><br>
+      La inflación se mide cuando un mismo producto tiene precio en 2 fechas distintas. Desde ahora la app guarda cada cambio de precio que edites,
+      o podés crear una lista con una fecha anterior y cargar ahí los precios de esa época.</div></div>`;
+    return;
+  }
+
+  const general = promedio(dashMedidos.map(p => p.var));
+  const f0 = dashMedidos.reduce((m,p) => p.pts[0].f < m ? p.pts[0].f : m, '9999-99-99');
+  const f1 = dashMedidos.reduce((m,p) => p.pts[p.pts.length-1].f > m ? p.pts[p.pts.length-1].f : m, '0000-00-00');
+
+  dashFamilias = CATEGORIAS.map(c => {
+    const ps = dashMedidos.filter(p => p.categoria === c.nombre);
+    return ps.length ? {nombre: c.nombre, color: c.color, ps, var: promedio(ps.map(p => p.var))} : null;
+  }).filter(Boolean).sort((a,b) => b.var - a.var);
+  const maxAbs = Math.max(0.1, ...dashFamilias.map(f => Math.abs(f.var)));
+
+  let titulo = 'Índice general (base 100)', serie, fmtY = v => v.toFixed(1), varSel = general;
+  const fam = dashSel.tipo === 'familia' ? dashFamilias.find(f => f.nombre === dashSel.clave) : null;
+  const prod = dashSel.tipo === 'producto' ? dashMedidos.find(p => p.clave === dashSel.clave) : null;
+  if(fam){
+    titulo = `Índice ${fam.nombre} (base 100)`;
+    serie = serieIndice(fam.ps); varSel = fam.var;
+  } else if(prod){
+    titulo = `${prod.nombre}: ${fmt(prod.primero)} → ${fmt(prod.ultimo)}`;
+    serie = prod.pts.map(x => ({f: x.f, v: x.p})); fmtY = fmt; varSel = prod.var;
+  } else {
+    dashSel = {tipo: 'general', clave: null};
+    serie = serieIndice(dashMedidos);
+  }
+
+  const filasFam = dashFamilias.map((f,i) => `
+    <div class="fam-row ${fam && fam.nombre === f.nombre ? 'sel' : ''}" onclick="selDashFam(${i})">
+      <div class="fam-nombre"><span class="cat-dot" style="background:${f.color}"></span>${f.nombre} <span class="pr-det">(${f.ps.length})</span></div>
+      <span class="pct ${claseVar(f.var)}">${fmtPct(f.var)}</span>
+      <div class="barra"><span style="width:${Math.max(3, Math.abs(f.var)/maxAbs*100)}%;background:${f.var > 0 ? 'var(--red)' : 'var(--green)'}"></span></div>
+    </div>`).join('');
+
+  body.innerHTML = chips + `
+    <div class="dash-hero">
+      <div class="sub">Inflación promedio · ${periodoTxt}</div>
+      <div class="big ${claseVar(general)}-txt">${fmtPct(general)}</div>
+      <div class="sub">${dashMedidos.length} productos medidos · ${fechaCortaChart(f0)} a ${fechaCortaChart(f1)}</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-head"><h3>${escapeHtml(titulo)}</h3><span class="pct ${claseVar(varSel)}">${fmtPct(varSel)}</span></div>
+      ${dashSel.tipo !== 'general' ? '<button class="dash-reset" onclick="selDashGeneral()">← Ver general</button>' : ''}
+      ${graficoLinea(serie, fmtY)}
+    </div>
+    <div class="dash-card"><h3>Por familia</h3>${filasFam}</div>
+    <div class="dash-card"><h3>Por producto</h3>
+      <input id="dash-buscar" type="text" placeholder="Buscar producto..." autocomplete="off" value="${escapeAttr(dashBusqueda)}">
+      <div id="dash-lista-prod"></div>
+    </div>
+    <div class="dash-nota">Inflación = promedio simple de la variación de cada producto entre su primer y su último precio registrado.</div>`;
+
+  $('dash-buscar').addEventListener('input', e => { dashBusqueda = e.target.value; renderListaProdDash(); });
+  renderListaProdDash();
+}
+
+function renderListaProdDash(){
+  const q = normalizar(dashBusqueda);
+  const cont = $('dash-lista-prod');
+  const filas = dashMedidos.map((p,i) => ({p,i})).filter(x => !q || normalizar(x.p.nombre).includes(q));
+  if(!filas.length){ cont.innerHTML = '<div class="empty" style="padding:14px 6px">Sin resultados.</div>'; return; }
+  cont.innerHTML = filas.map(({p,i}) => `
+    <div class="prod-row ${dashSel.tipo === 'producto' && dashSel.clave === p.clave ? 'sel' : ''}" onclick="selDashProd(${i})">
+      <div class="pr-info"><div class="pr-nombre">${escapeHtml(p.nombre)}</div><div class="pr-det">${fmt(p.primero)} → ${fmt(p.ultimo)}</div></div>
+      <span class="pct ${claseVar(p.var)}">${fmtPct(p.var)}</span>
+    </div>`).join('');
+}
+
+$('btn-dash').addEventListener('click', abrirDash);
 
 llenarSelectCategorias();
 cargarDatos();
