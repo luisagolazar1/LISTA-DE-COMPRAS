@@ -1075,7 +1075,24 @@ const CLAVES_COLUMNA = {
   cantidad: ['cantidad', 'cant'],
   precio: ['precio unitario', 'precio', 'preciounitario', 'preciounit'],
   comprado: ['comprado', 'estado'],
+  fecha: ['fecha'],
 };
+
+// Convierte una celda de fecha (serie Excel, Date o texto) a 'YYYY-MM-DD'
+function fechaAISO(v){
+  if(v === '' || v == null) return '';
+  if(v instanceof Date) return isNaN(v) ? '' : isoDeDate(v);
+  if(typeof v === 'number'){
+    if(v < 20000 || v > 80000) return '';
+    return new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0,10);
+  }
+  const t = String(v).trim();
+  let m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+  if(m){ const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return '';
+}
 
 function detectarColumnas(filas){
   let mejorFila = -1, mejorPuntaje = 0, mapaMejor = {};
@@ -1107,9 +1124,10 @@ function detectarColumnas(filas){
   return { filaHeader: -1, mapa: { nombre: 0, cantidad: 1, precio: 2 } };
 }
 
-function filasAItems(filas){
+function filasAItems(filas, exigirHeader){
   const { filaHeader, mapa } = detectarColumnas(filas);
   if(mapa.nombre === undefined) return [];
+  if(exigirHeader && filaHeader < 0) return [];
   const inicio = filaHeader >= 0 ? filaHeader + 1 : 0;
   const resultado = [];
   for(let f = inicio; f < filas.length; f++){
@@ -1122,7 +1140,10 @@ function filasAItems(filas){
     const compradoRaw = mapa.comprado !== undefined ? normalizar(fila[mapa.comprado]) : '';
     const comprado = ['ok', 'comprado', 'si', 'true', 'x'].includes(compradoRaw);
     const categoria = mapa.categoria !== undefined ? matchCategoria(fila[mapa.categoria]) : 'Otros';
-    resultado.push({ nombre: String(nombre).trim(), precio, cant: Math.round(cant), comprado, categoria });
+    const it = { nombre: String(nombre).trim(), precio, cant: Math.round(cant), comprado, categoria };
+    const fecha = mapa.fecha !== undefined ? fechaAISO(fila[mapa.fecha]) : '';
+    if(fecha) it.fecha = fecha;
+    resultado.push(it);
   }
   return resultado;
 }
@@ -1138,8 +1159,10 @@ function parseArchivoExcel(file){
         wb.SheetNames.forEach(nombreHoja => {
           const hoja = wb.Sheets[nombreHoja];
           const filas = XLSX.utils.sheet_to_json(hoja, { header: 1, raw: true, defval: '' });
-          todosLosItems = todosLosItems.concat(filasAItems(filas));
+          todosLosItems = todosLosItems.concat(filasAItems(filas, wb.SheetNames.length > 1));
         });
+        // Si el libro tiene hojas con fechas, las hojas de resumen (sin fecha) se descartan
+        if(todosLosItems.some(it => it.fecha)) todosLosItems = todosLosItems.filter(it => it.fecha);
         resolve(todosLosItems);
       }catch(err){ reject(err); }
     };
@@ -1249,15 +1272,38 @@ $('file-importar').addEventListener('change', async (e) => {
       return;
     }
 
-    const confirmar = confirm(`Se encontraron ${nuevosItems.length} productos en "${file.name}". ¿Agregarlos a la lista actual?`);
-    if(!confirmar) return;
+    const conFecha = nuevosItems.filter(it => it.fecha);
+    const sinFecha = nuevosItems.filter(it => !it.fecha);
+    const fechas = [...new Set(conFecha.map(it => it.fecha))].sort();
+    const msg = fechas.length
+      ? `Se encontraron ${nuevosItems.length} productos en ${fechas.length} fecha(s) (${fechas.join(', ')}). Se cargan en una lista por fecha y alimentan el dashboard de inflación. ¿Importar?`
+      : `Se encontraron ${nuevosItems.length} productos en "${file.name}". ¿Agregarlos a la lista actual?`;
+    if(!confirm(msg)) return;
 
-    nuevosItems.forEach(it => registrarPrecio(it, it.precio));
-    items = items.concat(nuevosItems);
+    let agregados = 0;
+    sinFecha.forEach(it => registrarPrecio(it, it.precio));
+    items = items.concat(sinFecha);
+    agregados += sinFecha.length;
     sincronizarListaActiva();
+    fechas.forEach(f => {
+      let lista = listas.find(l => l.fecha === f);
+      if(!lista){
+        lista = { id: 'lista_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), fecha: f, nombre: '', items: [] };
+        listas.push(lista);
+      }
+      const vistos = new Set(lista.items.map(x => normalizar(x.nombre)));
+      conFecha.filter(it => it.fecha === f).forEach(it => {
+        const k = normalizar(it.nombre);
+        if(vistos.has(k)) return;
+        vistos.add(k);
+        const { fecha, ...limpio } = it;
+        lista.items.push(limpio);
+        agregados++;
+      });
+    });
     render();
     guardarItems(true);
-    mostrarToast(`Se importaron ${nuevosItems.length} productos 📥`);
+    mostrarToast(`Se importaron ${agregados} productos 📥`);
   }catch(err){
     console.error(err);
     mostrarToast('No se pudo leer el archivo. Probá con otro formato.');
