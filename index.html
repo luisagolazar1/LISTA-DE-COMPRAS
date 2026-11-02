@@ -351,6 +351,7 @@
   <button id="btn-finalizar" disabled>✅ Finalizar compra</button>
   <button id="btn-desmarcar">↺ Desmarcar todos</button>
   <button id="btn-importar">📥 Importar Excel/PDF</button>
+  <button id="btn-exportar">📤 Exportar Excel</button>
   <button id="btn-dash">📈 Inflación</button>
   <input type="file" id="file-importar" accept=".xlsx,.xls,.csv,.pdf" style="display:none">
 </div>
@@ -1241,6 +1242,26 @@ async function parseArchivoPdf(file){
   const lineas = await extraerLineasPdf(file);
   return lineasAItems(lineas);
 }
+
+$('btn-exportar').addEventListener('click', () => {
+  if(!window.XLSX){ mostrarToast('No se pudo cargar el exportador'); return; }
+  sincronizarListaActiva();
+  const filas = [['Fecha','Categoría','Descripción del producto','Cantidad','Precio Unitario','Precio Total','Comprado','Lista']];
+  listas.slice().sort((a,b) => (a.fecha||'').localeCompare(b.fecha||'')).forEach(l => {
+    const [y,m,d] = (l.fecha || hoyISO()).split('-').map(Number);
+    const fecha = new Date(Date.UTC(y, m-1, d));
+    l.items.forEach(it => {
+      filas.push([fecha, it.categoria || 'Otros', it.nombre, it.cant || 1, it.precio || 0, (it.cant || 1) * (it.precio || 0), it.comprado ? 'OK' : '', l.nombre || '']);
+    });
+  });
+  if(filas.length === 1){ mostrarToast('No hay productos para exportar'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(filas, { cellDates: true });
+  ws['!cols'] = [{wch:11},{wch:20},{wch:34},{wch:9},{wch:14},{wch:12},{wch:10},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+  XLSX.writeFile(wb, `lista-compras-${hoyISO()}.xlsx`, { cellDates: true });
+  mostrarToast(`Exportados ${filas.length - 1} productos 📤`);
+});
 
 $('btn-importar').addEventListener('click', () => {
   $('file-importar').click();
