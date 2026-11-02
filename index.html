@@ -261,6 +261,8 @@
   .hist-item{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
   .hist-item .fecha{font-size:0.82rem;color:#6b6b60;}
   .hist-item .monto{font-family:'Courier New',monospace;font-weight:700;color:var(--amber);}
+  .exp-h{border:1px solid var(--line);background:var(--white);border-radius:14px;font-size:0.75rem;padding:3px 10px;margin-left:8px;cursor:pointer;color:var(--ink);vertical-align:middle;}
+  .hist-item .exp-i{border:none;background:none;font-size:0.95rem;margin-left:8px;cursor:pointer;}
   .hist-item .borrar-h{border:none;background:none;color:var(--red);font-size:0.95rem;margin-left:8px;cursor:pointer;}
   .hist-detalle{font-size:0.8rem;color:#555;background:var(--amber-soft);border-radius:8px;padding:8px 10px;margin:-2px 0 8px;display:none;}
   .hist-detalle.show{display:block;}
@@ -357,7 +359,7 @@
 </div>
 
 <section class="hist">
-  <h2>Historial de gastos</h2>
+  <h2>Historial de gastos <button class="exp-h" id="btn-exp-hist" title="Exportar todo el historial">📤 Todo</button></h2>
   <div id="historial"><div class="empty">Cargando historial...</div></div>
 </section>
 
@@ -1346,6 +1348,7 @@ function renderHistorial(){
       <span class="fecha">${h.fecha}</span>
       <span>
         <span class="monto">${fmt(h.total)}</span>
+        <button class="exp-i" title="Exportar esta compra" onclick="event.stopPropagation(); exportarHistorial(${i})">📤</button>
         <button class="borrar-h" onclick="event.stopPropagation(); borrarHist(${i})">🗑</button>
       </span>
     </div>
@@ -1354,6 +1357,28 @@ function renderHistorial(){
     </div>
   `).join('');
 }
+
+// Exporta una compra del historial (i) o todas (sin argumento) en el mismo formato que Importar
+function exportarHistorial(i){
+  if(!window.XLSX){ mostrarToast('No se pudo cargar el exportador'); return; }
+  const lista = (i === undefined ? historial.slice().reverse() : [historial[i]]).filter(Boolean);
+  const filas = [['Fecha','Categoría','Descripción del producto','Cantidad','Precio Unitario','Precio Total','Comprado','Lista']];
+  lista.forEach(h => {
+    const iso = parseFechaHistorial(h.fecha) || hoyISO();
+    const [y,m,d] = iso.split('-').map(Number);
+    const fecha = new Date(Date.UTC(y, m-1, d));
+    h.items.forEach(it => filas.push([fecha, it.categoria || 'Otros', it.nombre, it.cant || 1, it.precio || 0, (it.cant || 1) * (it.precio || 0), it.comprado ? 'OK' : '', h.fecha]));
+  });
+  if(filas.length === 1){ mostrarToast('No hay productos para exportar'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(filas, { cellDates: true });
+  ws['!cols'] = [{wch:11},{wch:20},{wch:34},{wch:9},{wch:14},{wch:12},{wch:10},{wch:20}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+  const sufijo = i === undefined ? 'historial' : (parseFechaHistorial(historial[i].fecha) || hoyISO());
+  XLSX.writeFile(wb, `compra-${sufijo}.xlsx`, { cellDates: true });
+  mostrarToast(`Exportados ${filas.length - 1} productos 📤`);
+}
+$('btn-exp-hist').addEventListener('click', () => exportarHistorial());
 
 function toggleDetalle(i){
   $(`hd-${i}`).classList.toggle('show');
